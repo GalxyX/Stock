@@ -1,0 +1,10 @@
+{
+    "appService.zipIgnorePattern": [
+        "./.env*",
+        "node_modules{,/**}"
+    ]
+,
+    "files.exclude": {
+        ".env": true
+    }
+}
