@@ -105,37 +105,52 @@ async function importDataToDatabase(data) {
     database = await createDatabaseConnection(passwordConfig);
     console.log('数据库连接成功');
 
-    // 记录导入进度
-    let successCount = 0;
-    let errorCount = 0;
-    
-    // 循环导入数据
-    for (const item of data) {
-      try {
-        // 检查记录是否已存在
-        const existingRecord = await database.getStockByIdAndDate(item.stockid, item.date);
-        
-        if (existingRecord) {
-          // 记录已存在，更新
-          await database.updateStock(item);
-          console.log(`更新记录 - 股票代号: ${item.stockid}, 日期: ${item.date}`);
-        } else {
-          // 记录不存在，创建新记录
-          await database.createStock(item);
-          console.log(`创建记录 - 股票代号: ${item.stockid}, 日期: ${item.date}`);
+    // 启动事务
+    const transaction = await database.poolconnection.transaction();
+
+    try {
+      // 记录导入进度
+      let successCount = 0;
+      let errorCount = 0;
+      
+      // 循环导入数据
+      for (const item of data) {
+        try {
+          // 检查记录是否已存在
+          const existingRecord = await database.getStockByIdAndDate(item.stockid, item.date);
+          
+          if (existingRecord) {
+            // 记录已存在，更新
+            await database.updateStock(item);
+            console.log(`更新记录 - 股票代号: ${item.stockid}, 日期: ${item.date}`);
+          } else {
+            // 记录不存在，创建新记录
+            await database.createStock(item);
+            console.log(`创建记录 - 股票代号: ${item.stockid}, 日期: ${item.date}`);
+          }
+          
+          successCount++;
         }
-        
-        successCount++;
-      } catch (error) {
-        console.error(`导入记录出错 - 股票代号: ${item.stockid}, 日期: ${item.date}:`, error);
-        errorCount++;
+        catch (error) {
+          console.error(`导入记录出错 - 股票代号: ${item.stockid}, 日期: ${item.date}:`, error);
+          errorCount++;
+        }
       }
+      
+      // 提交事务
+      await transaction.commit();
+      console.log(`导入完成。成功: ${successCount}, 失败: ${errorCount}`);
     }
-    
-    console.log(`导入完成。成功: ${successCount}, 失败: ${errorCount}`);
-  } catch (error) {
+    catch (error) {
+      // 回滚事务
+      await transaction.rollback();
+      console.error('导入过程中出错，已回滚所有操作:', error);
+    }
+  }
+  catch (error) {
     console.error('导入过程中出错:', error);
-  } finally {
+  }
+  finally {
     // 断开数据库连接
     if (database && database.disconnect) {
       await database.disconnect();

@@ -64,45 +64,79 @@ export default class Database {
         // rowsAffected 是一个数组，通常包含各个语句受影响的行数，这里取 [0] 返回。
     }
 
-    async create(data) {
+    async createPerson(data) {
         // 按字段插入一条 Person 记录
         const request = this.poolconnection.request();
 
+        // 检查账号是否为空
+        if (!data.account || data.account.trim() === '') {
+            throw new Error('用户账号不能为空');
+        }
+
+        // 检查账号是否已存在
+        const existingUser = await this.readPersonbyAccount(data.account);
+        if (existingUser) {
+            throw new Error('该账号已被注册，请使用其他账号');
+        }
+
         request.input('name', sql.NVarChar(255), data.name);
         request.input('selectedStocks', sql.NVarChar(sql.MAX), data.selectedStocks || '');
+        request.input('account', sql.NVarChar(255), data.account);
+        request.input('password', sql.NVarChar(255), data.password || '');
+        request.input('role', sql.NVarChar(255), data.role || '');
         // 通过 request.input 绑定输入参数，避免 SQL 注入
 
-        const result = await request.query(
-            `INSERT INTO Person (name, selectedStocks) VALUES (@name, @selectedStocks)`
-        );
-        // 执行 INSERT 语句，插入新记录到 Person 表
-
-        return result.rowsAffected[0];
-        // 返回受影响的行数
+        try {
+            const result = await request.query(
+                `INSERT INTO Person (name, selectedStocks, account, password, role)
+                VALUES (@name, @selectedStocks, @account, @password, @role);
+                SELECT SCOPE_IDENTITY() AS id;`
+            );
+            // 执行 INSERT 语句，插入新记录到 Person 表
+            
+            return { id: result.recordset[0].id };
+        }
+        catch (err) {
+            // 捕获可能的唯一性约束冲突错误
+            if (err.number === 2627) {
+                throw new Error('该账号已被注册，请使用其他账号');
+            }
+            throw err; // 重新抛出其他类型的错误
+        }
     }
 
-    async readAll() {
+    async readAllPerson() {
         // 查询 Person 表所有记录。
         const request = this.poolconnection.request();
-        const result = await request.query(`SELECT * FROM Person`);
+        const result = await request.query(`SELECT id, name, selectedStocks, account, role FROM Person`);
         // 执行 SELECT 查询，获取所有行。
 
         return result.recordsets[0];
         // recordsets[0] 为查询的第一组结果。
     }
 
-    async read(id) {
+    async readPersonbyId(id) {
         // 按主键 ID 查询单条记录。
         const request = this.poolconnection.request();
         // 创建 request 对象。
         const result = await request
             .input('id', sql.Int, +id)
             // 向查询语句绑定 id 参数。
-            .query(`SELECT * FROM Person WHERE id = @id`);
+            .query(`SELECT id, name, selectedStocks, account, role FROM Person WHERE id = @id`);
             // 按绑定的 @id 参数查找对应记录。
 
         return result.recordset[0];
         // recordset[0] 仅返回一条记录。
+    }
+
+    async readPersonbyAccount(account) {
+        // 按账号查询单条记录。
+        const request = this.poolconnection.request();
+        const result = await request
+            .input('account', sql.NVarChar(255), account)
+            .query(`SELECT * FROM Person WHERE account = @account`);
+        
+        return result.recordset[0];
     }
 
     async update(id, data) {
@@ -122,7 +156,39 @@ export default class Database {
         // 返回受影响的行数
     }
 
-    async delete(id) {
+    async updatePersonName(id, name) {
+        // 更新指定 ID 的记录
+        const request = this.poolconnection.request();
+
+        request.input('id', sql.Int, +id);
+        request.input('name', sql.NVarChar(255), name);
+
+        const result = await request.query(
+            `UPDATE Person SET name = @name WHERE id = @id`
+        );
+        // 执行 UPDATE 语句
+
+        return result.rowsAffected[0];
+        // 返回受影响的行数
+    }
+
+    async updatePersonPassword(id, password) {
+        // 更新指定 ID 的记录
+        const request = this.poolconnection.request();
+
+        request.input('id', sql.Int, +id);
+        request.input('password', sql.NVarChar(255), password);
+
+        const result = await request.query(
+            `UPDATE Person SET password = @password WHERE id = @id`
+        );
+        // 执行 UPDATE 语句
+
+        return result.rowsAffected[0];
+        // 返回受影响的行数
+    }
+
+    async deletePerson(id) {
         // 删除指定 ID 的记录。
         const idAsNumber = Number(id);
         // 转换传入 id 为数字，确保正确性。
@@ -137,14 +203,27 @@ export default class Database {
         // 返回受影响的行数。
     }
 
+    // async deletePersonbyAccount(account) {
+    //     // 删除指定 account 的记录
+    //     const request = this.poolconnection.request();
+    //     const result = await request
+    //         .input('account', sql.NVarChar(255), account)
+    //         .query(`DELETE FROM Person WHERE account = @account`);
+
+    //     return result.rowsAffected[0];
+    // }
+
     // 添加股票到用户的选择列表
-    async addStockToUser(userId, stockId) {
-        const user = await this.read(userId);
-        if (!user) return 0;
+    async addStocksToUser(userId, stockIds) {
+        const user = await this.readPersonbyId(userId);
+        if (!user)
+            return 0;
 
         let stocks = user.selectedStocks ? user.selectedStocks.split(',') : [];
-        if (!stocks.includes(stockId)) {
-            stocks.push(stockId);
+        for (const stockId of stockIds) {
+            if (!stocks.includes(stockId)) {
+                stocks.push(stockId);
+            }
         }
 
         const request = this.poolconnection.request();
@@ -160,8 +239,9 @@ export default class Database {
 
     // 从用户的选择列表移除股票
     async removeStockFromUser(userId, stockId) {
-        const user = await this.read(userId);
-        if (!user || !user.selectedStocks) return 0;
+        const user = await this.readPersonbyId(userId);
+        if (!user || !user.selectedStocks)
+            return 0;
 
         let stocks = user.selectedStocks.split(',');
         stocks = stocks.filter(id => id !== stockId);
@@ -179,8 +259,9 @@ export default class Database {
 
     // 获取用户选择的所有股票
     async getUserSelectedStocks(userId) {
-        const user = await this.read(userId);
-        if (!user || !user.selectedStocks) return [];
+        const user = await this.readPersonbyId(userId);
+        if (!user || !user.selectedStocks)
+            return [];
 
         return user.selectedStocks.split(',');
     }
@@ -194,7 +275,10 @@ export default class Database {
                      CREATE TABLE Person (
                          id int NOT NULL IDENTITY PRIMARY KEY,
                          name varchar(255) NOT NULL,
-                         selectedStocks varchar(MAX)
+                         selectedStocks varchar(MAX),
+                         account varchar(255) NOT NULL UNIQUE,
+                         password varchar(255),
+                         role varchar(255)
                      );
                  END`
             )
@@ -254,6 +338,11 @@ export default class Database {
 
     // 创建一条股票记录
     async createStock(stockData) {
+// 添加基本验证
+        if (!stockData.stockid || !stockData.date) {
+            throw new Error('股票代码和日期不能为空');
+        }
+        
         const request = this.poolconnection.request();
         
         // 绑定参数
@@ -348,6 +437,17 @@ export default class Database {
     async updateStock(stockData) {
         const request = this.poolconnection.request();
 
+        // 添加参数验证
+        if (!stockData.stockid || !stockData.date) {
+            throw new Error('股票代号和日期是必填字段');
+        }
+
+        // 先检查记录是否存在
+        const existingRecord = await this.getStockByIdAndDate(stockData.stockid, stockData.date);
+        if (!existingRecord) {
+            throw new Error(`股票记录不存在: ${stockData.stockid}, ${stockData.date}`);
+        }
+
         const stockid = stockData.stockid;
         const date = stockData.date;
         
@@ -412,6 +512,12 @@ export default class Database {
 
 // 使用工厂函数创建并返回一个数据库实例。
 export const createDatabaseConnection = async (passwordConfig) => {
+    // 如果实例已存在且已连接，则直接返回该实例
+    if (database && database.connected) {
+        return database;
+    }
+
+
     database = new Database(passwordConfig);
     // 创建 Database 类的实例，传入数据库配置。
     await database.connect();

@@ -1,195 +1,733 @@
 openapi: 3.0.0
 info:
-  title: 股票数据管理 API
+  title: 股票数据管理API
   description: |
-    提供股票数据和用户管理的 API 接口，支持数据的增删改查操作。
-    包括用户管理、股票数据操作以及第三方数据集成。
-  version: 1.0.0
+    提供股票数据管理、用户认证和用户数据管理功能的API接口。
+    包括股票数据的CRUD操作、用户注册登录、股票选择等功能。
+  version: '2.0.0'
   contact:
-    name: API 支持团队
+    name: Stockstock
     email: support@example.com
-
 servers:
   - url: http://localhost:3000
-    description: 本地开发服务器
+    description: 本地开发环境
+  - url: https://api.example.com
+    description: 生产环境
+    
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: 使用JWT令牌进行认证，格式为 "token"
+      
+  schemas:
+    # 用户相关模式
+    Person:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: 用户ID
+        name:
+          type: string
+          description: 用户名称
+        account:
+          type: string
+          description: 用户账号
+        role:
+          type: string
+          description: 用户角色(user/admin)
+        selectedStocks:
+          type: string
+          description: 用户选择的股票代码，以逗号分隔
+      required:
+        - id
+        - name
+        - account
+        - role
+    
+    PersonCreate:
+      type: object
+      properties:
+        name:
+          type: string
+          description: 用户名称
+        account:
+          type: string
+          description: 用户账号
+        password:
+          type: string
+          description: 用户密码
+        role（可选，但均为普通用户，未设置可注册为管理员）:
+          type: string
+          description: 用户角色(user/admin)
+      required:
+        - name
+        - account
+        - password
+    
+    PersonUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          description: 用户名称
+        selectedStocks:
+          type: string
+          description: 用户选择的股票代码，以逗号分隔
+      required:
+        - name
 
-tags:
-  - name: 用户管理
-    description: 用户信息的增删改查操作
-  - name: 用户股票管理
-    description: 用户选择的股票列表管理
-  - name: 股票数据
-    description: 股票信息的增删改查操作
-  - name: 外部数据集成
-    description: 集成雪球等外部数据源
+    # 认证相关模式
+    LoginRequest:
+      type: object
+      properties:
+        account:
+          type: string
+          description: 用户账号
+        password:
+          type: string
+          description: 用户密码
+      required:
+        - account
+        - password
+        
+    LoginResponse:
+      type: object
+      properties:
+        token:
+          type: string
+          description: JWT令牌
+        expiresIn:
+          type: integer
+          description: 过期时间(秒)
+      required:
+        - token
+        - expiresIn
 
+    NameUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          description: 新的用户名
+      required:
+        - name
+        
+    PasswordUpdate:
+      type: object
+      properties:
+        password:
+          type: string
+          description: 新密码
+      required:
+        - password
+        
+    # 股票相关模式
+    Stock:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: 记录ID
+        stockid:
+          type: string
+          description: 股票代码
+        date:
+          type: string
+          description: 日期
+        TTM:
+          type: number
+          format: decimal
+          description: 市盈率_TTM
+        PE:
+          type: number
+          format: decimal
+          description: 市盈率_静
+        PB:
+          type: number
+          format: decimal
+          description: 市净率
+        PCF:
+          type: number
+          format: decimal
+          description: 市现率
+        baiduindex:
+          type: integer
+          description: 百度指数
+        weibo_cnsenti:
+          type: number
+          format: decimal
+          description: 微博情绪_Cnsenti库
+        weibo_dictionary:
+          type: number
+          format: decimal
+          description: 微博情绪_纯金融词典
+        marketGDP:
+          type: number
+          format: decimal
+          description: 市场GDP
+        marketpopulation:
+          type: number
+          format: decimal
+          description: 市场从业人数
+        marketaslary:
+          type: number
+          format: decimal
+          description: 市场平均工资
+        ratio_TTM:
+          type: number
+          format: decimal
+          nullable: true
+          description: r市盈率_TTM
+        ratio_PE:
+          type: number
+          format: decimal
+          nullable: true
+          description: r市盈率_静
+        ratio_PB:
+          type: number
+          format: decimal
+          nullable: true
+          description: r市净率
+        ratio_PCF:
+          type: number
+          format: decimal
+          nullable: true
+          description: r市现率
+        ratio_baiduindex:
+          type: number
+          format: decimal
+          nullable: true
+          description: r百度指数
+        ratio_weibo_cnsenti:
+          type: number
+          format: decimal
+          nullable: true
+          description: r微博情绪_Cnsenti库
+        ratio_weibo_dictionary:
+          type: number
+          format: decimal
+          nullable: true
+          description: r微博情绪_纯金融词典
+        ratio_marketGDP:
+          type: number
+          format: decimal
+          nullable: true
+          description: r市场GDP
+        ratio_marketpopulation:
+          type: number
+          format: decimal
+          nullable: true
+          description: r市场从业人数
+        ratio_marketaslary:
+          type: number
+          format: decimal
+          nullable: true
+          description: r市场平均工资
+      required:
+        - stockid
+        - date
+
+    StockCreate:
+      type: object
+      properties:
+        stockid:
+          type: string
+          description: 股票代码
+        date:
+          type: string
+          description: 日期
+        TTM:
+          type: number
+          format: decimal
+          description: 市盈率_TTM
+        PE:
+          type: number
+          format: decimal
+          description: 市盈率_静
+        PB:
+          type: number
+          format: decimal
+          description: 市净率
+        PCF:
+          type: number
+          format: decimal
+          description: 市现率
+        baiduindex:
+          type: integer
+          description: 百度指数
+        weibo_cnsenti:
+          type: number
+          format: decimal
+          description: 微博情绪_Cnsenti库
+        weibo_dictionary:
+          type: number
+          format: decimal
+          description: 微博情绪_纯金融词典
+        marketGDP:
+          type: number
+          format: decimal
+          description: 市场GDP
+        marketpopulation:
+          type: number
+          format: decimal
+          description: 市场从业人数
+        marketaslary:
+          type: number
+          format: decimal
+          description: 市场平均工资
+        ratio_TTM:
+          type: number
+          format: decimal
+          nullable: true
+          description: r市盈率_TTM
+        ratio_PE:
+          type: number
+          format: decimal
+          nullable: true
+          description: r市盈率_静
+        ratio_PB:
+          type: number
+          format: decimal
+          nullable: true
+          description: r市净率
+        ratio_PCF:
+          type: number
+          format: decimal
+          nullable: true
+          description: r市现率
+        ratio_baiduindex:
+          type: number
+          format: decimal
+          nullable: true
+          description: r百度指数
+        ratio_weibo_cnsenti:
+          type: number
+          format: decimal
+          nullable: true
+          description: r微博情绪_Cnsenti库
+        ratio_weibo_dictionary:
+          type: number
+          format: decimal
+          nullable: true
+          description: r微博情绪_纯金融词典
+        ratio_marketGDP:
+          type: number
+          format: decimal
+          nullable: true
+          description: r市场GDP
+        ratio_marketpopulation:
+          type: number
+          format: decimal
+          nullable: true
+          description: r市场从业人数
+        ratio_marketaslary:
+          type: number
+          format: decimal
+          nullable: true
+          description: r市场平均工资
+      required:
+        - stockid
+        - date
+    
+    AddStockRequest:
+      type: array
+      items:
+        type: string
+        description: 股票代码
+      description: 要添加的股票ID数组
+      required:
+        - stockId
+    
+    # 通用响应模式
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          description: 错误消息
+        code:
+          type: string
+          description: 错误代码
+    
+    RowsAffectedResponse:
+      type: object
+      properties:
+        rowsAffected:
+          type: integer
+          description: 受影响的行数
+          
 paths:
-  # 用户管理路由
-  /persons:
-    get:
-      summary: 获取所有用户
-      description: 返回系统中所有用户的列表
+  # 认证相关路径
+  /persons/register:
+    post:
       tags:
-        - 用户管理
+        - 用户认证
+      summary: 用户注册
+      description: 创建新用户账号
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PersonCreate'
+      responses:
+        '201':
+          description: 注册成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                    description: 新创建的用户ID
+        '400':
+          description: 请求参数错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: 账户已存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: 服务器内部错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /persons/login:
+    post:
+      tags:
+        - 用户认证
+      summary: 用户登录
+      description: 验证用户凭据并返回JWT令牌
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
       responses:
         '200':
-          description: 成功获取用户列表
+          description: 登录成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '400':
+          description: 请求参数错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: 认证失败
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: 服务器内部错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # 用户管理相关路径
+  /persons/all:
+    get:
+      tags:
+        - 用户管理
+      summary: 获取所有用户
+      description: 管理员获取所有用户信息
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: 查询成功
           content:
             application/json:
               schema:
                 type: array
                 items:
                   $ref: '#/components/schemas/Person'
-        '500':
-          description: 服务器错误
+        '401':
+          description: 未认证
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-    post:
-      summary: 创建新用户
-      description: 创建一个新的用户记录
-      tags:
-        - 用户管理
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/PersonInput'
-      responses:
-        '201':
-          description: 用户创建成功
+        '403':
+          description: 权限不足
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  rowsAffected:
-                    type: integer
-                    description: 受影响的行数
-                    example: 1
+                $ref: '#/components/schemas/Error'
         '500':
-          description: 服务器错误
+          description: 服务器内部错误
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
 
-  /persons/{id}:
-    get:
-      summary: 获取特定用户
-      description: 通过ID获取特定用户的详细信息
+  /persons:
+    post:
       tags:
         - 用户管理
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
-          description: 用户ID
+      summary: 创建用户
+      description: 管理员创建新用户
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PersonCreate'
+      responses:
+        '201':
+          description: 创建成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                    description: 新创建的用户ID
+        '400':
+          description: 请求参数错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: 未认证
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: 权限不足
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: 服务器内部错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    
+    get:
+      tags:
+        - 用户管理
+      summary: 获取当前用户信息
+      description: 获取当前登录用户的详细信息
+      security:
+        - bearerAuth: []
       responses:
         '200':
-          description: 成功获取用户信息
+          description: 查询成功
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Person'
-        '404':
-          description: 用户不存在
-        '500':
-          description: 服务器错误
+        '401':
+          description: 未认证
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '404':
+          description: 资源不存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: 服务器内部错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    
     put:
-      summary: 更新用户信息
-      description: 更新指定ID的用户信息
       tags:
         - 用户管理
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
-          description: 用户ID
+      summary: 更新当前用户信息
+      description: 更新当前登录用户的信息
+      security:
+        - bearerAuth: []
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/PersonInput'
+              $ref: '#/components/schemas/PersonUpdate'
       responses:
         '200':
-          description: 用户更新成功
+          description: 更新成功
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  rowsAffected:
-                    type: integer
-                    example: 1
-        '404':
-          description: 用户不存在
-        '500':
-          description: 服务器错误
+                $ref: '#/components/schemas/RowsAffectedResponse'
+        '401':
+          description: 未认证
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-    delete:
-      summary: 删除用户
-      description: 删除指定ID的用户
-      tags:
-        - 用户管理
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
-          description: 用户ID
-      responses:
-        '204':
-          description: 用户删除成功
+        '404':
+          description: 资源不存在
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  rowsAffected:
-                    type: integer
-                    example: 1
-        '404':
-          description: 用户不存在
+                $ref: '#/components/schemas/Error'
         '500':
-          description: 服务器错误
+          description: 服务器内部错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    
+    delete:
+      tags:
+        - 用户管理
+      summary: 删除当前用户
+      description: 删除当前登录用户的账户
+      security:
+        - bearerAuth: []
+      responses:
+        '204':
+          description: 删除成功
+        '401':
+          description: 未认证
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: 资源不存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: 服务器内部错误
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
 
-  # 用户股票管理路由
-  /persons/{id}/stocks:
-    get:
-      summary: 获取用户的股票列表
-      description: 获取特定用户已选择的股票列表
+  /persons/name:
+    put:
       tags:
-        - 用户股票管理
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
-          description: 用户ID
+        - 用户管理
+      summary: 更新用户名
+      description: 更新当前登录用户的名称
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NameUpdate'
       responses:
         '200':
-          description: 成功获取股票列表
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RowsAffectedResponse'
+        '401':
+          description: 未认证
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: 资源不存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: 服务器内部错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /persons/password:
+    put:
+      tags:
+        - 用户管理
+      summary: 更新密码
+      description: 更新当前登录用户的密码
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordUpdate'
+      responses:
+        '200':
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RowsAffectedResponse'
+        '400':
+          description: 请求参数错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: 未认证
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: 资源不存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: 服务器内部错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # 用户股票管理相关路径
+  /persons/stocks:
+    get:
+      tags:
+        - 用户股票管理
+      summary: 获取用户的股票列表
+      description: 获取当前用户选择的股票列表
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: 查询成功
           content:
             application/json:
               schema:
@@ -199,42 +737,39 @@ paths:
                     type: array
                     items:
                       type: string
-                    description: 股票ID列表
+                    description: 用户选择的股票代码列表
         '400':
           description: 请求参数错误
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-        '500':
-          description: 服务器错误
+        '401':
+          description: 未认证
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '500':
+          description: 服务器内部错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    
     post:
-      summary: 添加股票到用户列表
-      description: 向用户的选择列表中添加一个股票
       tags:
         - 用户股票管理
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
-          description: 用户ID
+      summary: 添加股票到用户列表
+      description: 向当前用户的选择列表添加股票
+      security:
+        - bearerAuth: []
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              type: object
-              properties:
-                stockId:
-                  type: string
-                  description: 股票ID
-                  example: "SH600000"
+              $ref: '#/components/schemas/AddStockRequest'
       responses:
         '200':
           description: 添加成功
@@ -245,48 +780,48 @@ paths:
                 properties:
                   success:
                     type: boolean
-                    example: true
                   rowsAffected:
                     type: integer
-                    example: 1
         '400':
           description: 请求参数错误
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '401':
+          description: 未认证
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
-          description: 用户不存在
+          description: 资源不存在
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
         '500':
-          description: 服务器错误
+          description: 服务器内部错误
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
 
-  /persons/{id}/stocks/{stockId}:
+  /persons/stocks/{stockId}:
     delete:
-      summary: 从用户列表移除股票
-      description: 从用户的选择列表中移除特定股票
       tags:
         - 用户股票管理
+      summary: 从用户列表移除股票
+      description: 从当前用户的选择列表中移除特定股票
+      security:
+        - bearerAuth: []
       parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
-          description: 用户ID
         - name: stockId
           in: path
           required: true
           schema:
             type: string
-          description: 股票ID
+          description: 要移除的股票ID
       responses:
         '200':
           description: 移除成功
@@ -297,65 +832,80 @@ paths:
                 properties:
                   success:
                     type: boolean
-                    example: true
                   rowsAffected:
                     type: integer
-                    example: 1
         '400':
           description: 请求参数错误
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '401':
+          description: 未认证
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
-          description: 用户不存在或未添加此股票
+          description: 资源不存在
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
         '500':
-          description: 服务器错误
+          description: 服务器内部错误
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
 
-  # 股票数据路由
+  # 股票数据管理相关路径
   /stocks:
     get:
-      summary: 获取所有股票数据
-      description: 返回数据库中所有股票数据记录
       tags:
         - 股票数据
+      summary: 获取所有股票信息
+      description: 获取数据库中所有股票记录
+      security:
+        - bearerAuth: []
       responses:
         '200':
-          description: 成功获取股票数据
+          description: 查询成功
           content:
             application/json:
               schema:
                 type: array
                 items:
                   $ref: '#/components/schemas/Stock'
-        '500':
-          description: 服务器错误
+        '401':
+          description: 未认证
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '500':
+          description: 服务器内部错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    
     post:
-      summary: 创建新股票数据
-      description: 添加一条新的股票数据记录
       tags:
         - 股票数据
+      summary: 创建股票记录
+      description: 添加新的股票数据记录(需管理员权限)
+      security:
+        - bearerAuth: []
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/StockInput'
+              $ref: '#/components/schemas/StockCreate'
       responses:
         '201':
-          description: 股票数据创建成功
+          description: 创建成功
           content:
             application/json:
               schema:
@@ -363,23 +913,49 @@ paths:
                 properties:
                   rowsAffected:
                     type: integer
-                    example: 1
-        '500':
-          description: 服务器错误
+        '401':
+          description: 未认证
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '403':
+          description: 权限不足
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: 服务器内部错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    
     delete:
-      summary: 删除所有股票数据
-      description: 删除数据库中所有股票数据记录
       tags:
         - 股票数据
+      summary: 删除所有股票记录
+      description: 删除数据库中所有股票记录(需管理员权限)
+      security:
+        - bearerAuth: []
       responses:
         '204':
-          description: 所有股票数据删除成功
+          description: 删除成功
+        '401':
+          description: 未认证
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: 权限不足
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '500':
-          description: 服务器错误
+          description: 服务器内部错误
           content:
             application/json:
               schema:
@@ -387,10 +963,12 @@ paths:
 
   /stocks/byId/{id}:
     get:
-      summary: 按股票代码查询
-      description: 获取特定股票代码的所有数据记录
       tags:
         - 股票数据
+      summary: 按ID查询股票
+      description: 获取指定股票代码的所有记录
+      security:
+        - bearerAuth: []
       parameters:
         - name: id
           in: path
@@ -398,24 +976,29 @@ paths:
           schema:
             type: string
           description: 股票代码
-          example: "SH600000"
       responses:
         '200':
-          description: 成功获取股票数据
+          description: 查询成功
           content:
             application/json:
               schema:
                 type: array
                 items:
                   $ref: '#/components/schemas/Stock'
+        '401':
+          description: 未认证
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
-          description: 未找到股票数据
+          description: 资源不存在
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
         '500':
-          description: 服务器错误
+          description: 服务器内部错误
           content:
             application/json:
               schema:
@@ -423,35 +1006,42 @@ paths:
 
   /stocks/byDate/{date}:
     get:
-      summary: 按日期查询
-      description: 获取特定日期的所有股票数据记录
       tags:
         - 股票数据
+      summary: 按日期查询股票
+      description: 获取指定日期的所有股票记录
+      security:
+        - bearerAuth: []
       parameters:
         - name: date
           in: path
           required: true
           schema:
             type: string
-          description: 日期字符串
-          example: "2023-01-01"
+          description: 日期
       responses:
         '200':
-          description: 成功获取股票数据
+          description: 查询成功
           content:
             application/json:
               schema:
                 type: array
                 items:
                   $ref: '#/components/schemas/Stock'
+        '401':
+          description: 未认证
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
-          description: 未找到股票数据
+          description: 资源不存在
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
         '500':
-          description: 服务器错误
+          description: 服务器内部错误
           content:
             application/json:
               schema:
@@ -459,10 +1049,12 @@ paths:
 
   /stocks/{id}/{date}:
     get:
-      summary: 按股票代码和日期查询
-      description: 获取特定股票在特定日期的数据记录
       tags:
         - 股票数据
+      summary: 按ID和日期查询股票
+      description: 获取特定股票代码和特定日期的记录
+      security:
+        - bearerAuth: []
       parameters:
         - name: id
           in: path
@@ -470,38 +1062,45 @@ paths:
           schema:
             type: string
           description: 股票代码
-          example: "SH600000"
         - name: date
           in: path
           required: true
           schema:
             type: string
-          description: 日期字符串
-          example: "2023-01-01"
+          description: 日期
       responses:
         '200':
-          description: 成功获取股票数据
+          description: 查询成功
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Stock'
+        '401':
+          description: 未认证
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
-          description: 未找到股票数据
+          description: 资源不存在
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
         '500':
-          description: 服务器错误
+          description: 服务器内部错误
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+    
     put:
-      summary: 更新股票数据
-      description: 更新特定股票在特定日期的数据记录
       tags:
         - 股票数据
+      summary: 更新股票记录
+      description: 更新特定股票代码和特定日期的记录(需管理员权限)
+      security:
+        - bearerAuth: []
       parameters:
         - name: id
           in: path
@@ -509,54 +1108,63 @@ paths:
           schema:
             type: string
           description: 股票代码
-          example: "SH600000"
         - name: date
           in: path
           required: true
           schema:
             type: string
-          description: 日期字符串
-          example: "2023-01-01"
+          description: 日期
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/StockInput'
+              $ref: '#/components/schemas/StockCreate'
       responses:
         '200':
-          description: 股票数据更新成功
+          description: 更新成功
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  rowsAffected:
-                    type: integer
-                    example: 1
+                $ref: '#/components/schemas/RowsAffectedResponse'
         '400':
-          description: ID或日期不匹配
+          description: 请求参数错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: 未认证
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: 权限不足
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
         '404':
-          description: 未找到股票数据
+          description: 资源不存在
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
         '500':
-          description: 服务器错误
+          description: 服务器内部错误
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+    
     delete:
-      summary: 删除股票数据
-      description: 删除特定股票在特定日期的数据记录
       tags:
         - 股票数据
+      summary: 删除股票记录
+      description: 删除特定股票代码和特定日期的记录(需管理员权限)
+      security:
+        - bearerAuth: []
       parameters:
         - name: id
           in: path
@@ -564,73 +1172,81 @@ paths:
           schema:
             type: string
           description: 股票代码
-          example: "SH600000"
         - name: date
           in: path
           required: true
           schema:
             type: string
-          description: 日期字符串
-          example: "2023-01-01"
+          description: 日期
       responses:
         '200':
-          description: 股票数据删除成功
+          description: 删除成功
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  rowsAffected:
-                    type: integer
-                    example: 1
+                $ref: '#/components/schemas/RowsAffectedResponse'
+        '401':
+          description: 未认证
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: 权限不足
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
-          description: 记录不存在
+          description: 资源不存在
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
         '500':
-          description: 服务器错误
+          description: 服务器内部错误
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
 
-  # 外部数据集成路由
+  # 雪球API股票K线数据
   /stocks/snowballAPI/{symbol}:
     get:
-      summary: 获取雪球K线数据
-      description: 调用雪球API获取指定股票的K线数据
       tags:
-        - 外部数据集成
+        - 股票数据
+      summary: 获取雪球API股票K线数据
+      description: 从雪球API获取特定股票的K线数据
+      security:
+        - bearerAuth: []
       parameters:
         - name: symbol
           in: path
           required: true
           schema:
             type: string
-          description: 股票代码(如SH600000)
+          description: 股票代码(带交易所前缀，如SH600000)
         - name: begin
           in: query
           required: false
           schema:
-            type: integer
-            format: int64
+            type: string
           description: 开始时间戳(13位)
         - name: period
           in: query
           required: false
           schema:
             type: string
-            default: "day"
+            enum: [day, week, month, quarter, year]
+            default: day
           description: 周期(day-日，week-周等)
         - name: type
           in: query
           required: false
           schema:
             type: string
-            default: "before"
-          description: 类型(before-历史)
+            default: before
+          description: 数据类型(before-历史)
         - name: count
           in: query
           required: false
@@ -643,19 +1259,23 @@ paths:
           required: false
           schema:
             type: string
-            default: "kline,pe,pb,ps,pcf,market_capital,agt,ggt,balance"
-          description: 指标(kline-K线，pe-市盈率等)
+            default: kline,pe,pb,ps,pcf,market_capital,agt,ggt,balance
+          description: 指示信号(kline-K线，pe-市盈率等)
       responses:
         '200':
-          description: 成功获取K线数据
+          description: 查询成功
           content:
             application/json:
               schema:
                 type: array
                 items:
                   type: object
-                  additionalProperties: true
-                  description: K线数据对象(字段根据请求的indicator参数动态变化)
+        '401':
+          description: 未认证
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '403':
           description: 访问被拒绝
           content:
@@ -675,269 +1295,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
         '500':
-          description: 服务器错误
+          description: 服务器内部错误
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-
-components:
-  schemas:
-    Person:
-      type: object
-      properties:
-        id:
-          type: integer
-          description: 用户ID
-          example: 1
-        name:
-          type: string
-          description: 用户名称
-          example: "张三"
-        selectedStocks:
-          type: string
-          description: 用户选择的股票列表(逗号分隔)
-          example: "SH600000,SZ000001,SH601398"
-      required:
-        - id
-        - name
-
-    Stock:
-      type: object
-      properties:
-        id:
-          type: integer
-          description: 数据记录ID
-          example: 1
-        stockid:
-          type: string
-          description: 股票代码
-          example: "SH600000"
-        date:
-          type: string
-          description: 日期
-          example: "2023-01-01"
-        TTM:
-          type: number
-          format: decimal
-          description: 市盈率(TTM)
-          example: 10.5
-        PE:
-          type: number
-          format: decimal
-          description: 市盈率(静态)
-          example: 9.8
-        PB:
-          type: number
-          format: decimal
-          description: 市净率
-          example: 1.2
-        PCF:
-          type: number
-          format: decimal
-          description: 市现率
-          example: 5.3
-        baiduindex:
-          type: integer
-          description: 百度指数
-          example: 5000
-        weibo_cnsenti:
-          type: number
-          format: decimal
-          description: 微博情绪(Cnsenti库)
-          example: 0.65
-        weibo_dictionary:
-          type: number
-          format: decimal
-          description: 微博情绪(纯金融词典)
-          example: 0.72
-        marketGDP:
-          type: number
-          format: decimal
-          description: 市场GDP
-          example: 15000.5
-        marketpopulation:
-          type: number
-          format: decimal
-          description: 市场从业人数
-          example: 35000.0
-        marketaslary:
-          type: number
-          format: decimal
-          description: 市场平均工资
-          example: 8500.0
-        ratio_TTM:
-          type: number
-          format: decimal
-          description: TTM比率
-          example: 1.05
-        ratio_PE:
-          type: number
-          format: decimal
-          description: PE比率
-          example: 0.98
-        ratio_PB:
-          type: number
-          format: decimal
-          description: PB比率
-          example: 1.1
-        ratio_PCF:
-          type: number
-          format: decimal
-          description: PCF比率
-          example: 0.9
-        ratio_baiduindex:
-          type: number
-          format: decimal
-          description: 百度指数比率
-          example: 1.2
-        ratio_weibo_cnsenti:
-          type: number
-          format: decimal
-          description: 微博情绪(Cnsenti库)比率
-          example: 0.95
-        ratio_weibo_dictionary:
-          type: number
-          format: decimal
-          description: 微博情绪(纯金融词典)比率
-          example: 1.05
-        ratio_marketGDP:
-          type: number
-          format: decimal
-          description: 市场GDP比率
-          example: 1.02
-        ratio_marketpopulation:
-          type: number
-          format: decimal
-          description: 市场从业人数比率
-          example: 0.98
-        ratio_marketaslary:
-          type: number
-          format: decimal
-          description: 市场平均工资比率
-          example: 1.01
-      required:
-        - stockid
-        - date
-
-    StockInput:
-      type: object
-      properties:
-        stockid:
-          type: string
-          description: 股票代码
-          example: "SH600000"
-        date:
-          type: string
-          description: 日期
-          example: "2023-01-01"
-        TTM:
-          type: number
-          format: decimal
-          description: 市盈率(TTM)
-          example: 10.5
-        PE:
-          type: number
-          format: decimal
-          description: 市盈率(静态)
-          example: 9.8
-        PB:
-          type: number
-          format: decimal
-          description: 市净率
-          example: 1.2
-        PCF:
-          type: number
-          format: decimal
-          description: 市现率
-          example: 5.3
-        baiduindex:
-          type: integer
-          description: 百度指数
-          example: 5000
-        weibo_cnsenti:
-          type: number
-          format: decimal
-          description: 微博情绪(Cnsenti库)
-          example: 0.65
-        weibo_dictionary:
-          type: number
-          format: decimal
-          description: 微博情绪(纯金融词典)
-          example: 0.72
-        marketGDP:
-          type: number
-          format: decimal
-          description: 市场GDP
-          example: 15000.5
-        marketpopulation:
-          type: number
-          format: decimal
-          description: 市场从业人数
-          example: 35000.0
-        marketaslary:
-          type: number
-          format: decimal
-          description: 市场平均工资
-          example: 8500.0
-        ratio_TTM:
-          type: number
-          format: decimal
-          description: TTM比率
-          example: 1.05
-        ratio_PE:
-          type: number
-          format: decimal
-          description: PE比率
-          example: 0.98
-        ratio_PB:
-          type: number
-          format: decimal
-          description: PB比率
-          example: 1.1
-        ratio_PCF:
-          type: number
-          format: decimal
-          description: PCF比率
-          example: 0.9
-        ratio_baiduindex:
-          type: number
-          format: decimal
-          description: 百度指数比率
-          example: 1.2
-        ratio_weibo_cnsenti:
-          type: number
-          format: decimal
-          description: 微博情绪(Cnsenti库)比率
-          example: 0.95
-        ratio_weibo_dictionary:
-          type: number
-          format: decimal
-          description: 微博情绪(纯金融词典)比率
-          example: 1.05
-        ratio_marketGDP:
-          type: number
-          format: decimal
-          description: 市场GDP比率
-          example: 1.02
-        ratio_marketpopulation:
-          type: number
-          format: decimal
-          description: 市场从业人数比率
-          example: 0.98
-        ratio_marketaslary:
-          type: number
-          format: decimal
-          description: 市场平均工资比率
-          example: 1.01
-      required:
-        - stockid
-        - date
-
-    Error:
-      type: object
-      properties:
-        error:
-          type: string
-          description: 错误信息
-          example: "操作失败的原因描述"

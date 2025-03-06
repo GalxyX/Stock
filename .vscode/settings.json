@@ -1,7 +1,8 @@
 {
     "appService.zipIgnorePattern": [
         "./.env*",
-        "node_modules{,/**}"
+        "node_modules{,/**}",
+        ".vscode{,/**}"
     ]
 ,
     "files.exclude": {
