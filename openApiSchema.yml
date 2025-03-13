@@ -4,7 +4,7 @@ info:
   description: |
     提供股票数据管理、用户认证和用户数据管理功能的API接口。
     包括股票数据的CRUD操作、用户注册登录、股票选择等功能。
-  version: '2.0.0'
+  version: '3.0.0'
   contact:
     name: Stockstock
     email: support@example.com
@@ -227,6 +227,31 @@ components:
           format: decimal
           nullable: true
           description: r市场平均工资
+        total_asset:
+          type: number
+          format: decimal
+          description: 总资产
+        quarterly_asset_growth:
+          type: number
+          format: decimal
+          description: 季度资产增长
+        cash_flow_perhold_processed:
+          type: number
+          format: decimal
+          description: 每股经处理现金流
+        rfr:
+          type: number
+          format: decimal
+          description: 无风险利率
+        smooth_asset_growth:
+          type: number
+          format: decimal
+          description: 平滑资产增长
+        close_price:
+          type: number
+          format: decimal
+          description: 收盘价格
+
       required:
         - stockid
         - date
@@ -329,6 +354,30 @@ components:
           format: decimal
           nullable: true
           description: r市场平均工资
+        total_asset:
+          type: number
+          format: decimal
+          description: 总资产
+        quarterly_asset_growth:
+          type: number
+          format: decimal
+          description: 季度资产增长
+        cash_flow_perhold_processed:
+          type: number
+          format: decimal
+          description: 每股经处理现金流
+        rfr:
+          type: number
+          format: decimal
+          description: 无风险利率
+        smooth_asset_growth:
+          type: number
+          format: decimal
+          description: 平滑资产增长
+        close_price:
+          type: number
+          format: decimal
+          description: 收盘价格
       required:
         - stockid
         - date
@@ -341,6 +390,99 @@ components:
       description: 要添加的股票ID数组
       required:
         - stockId
+
+    # 模型预测相关模式
+    Prediction:
+      type: object
+      properties:
+        stockId:
+          type: string
+          description: 股票代码
+        date:
+          type: string
+          description: 预测日期
+        predictedPrice:
+          type: number
+          description: 预测价格
+        createdAt:
+          type: string
+          format: date-time
+          description: 预测创建时间
+      required:
+        - stockId
+        - date
+        - predictedPrice
+        - createdAt
+        
+    # 添加因子预测相关模式
+    FactorPrediction:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: 预测记录ID
+        stockId:
+          type: string
+          description: 股票代码
+        date:
+          type: string
+          description: 预测日期
+        TTM:
+          type: number
+          description: 预测的市盈率TTM值
+        PE:
+          type: number
+          description: 预测的市盈率值
+        PB:
+          type: number
+          description: 预测的市净率值
+        PCF:
+          type: number
+          description: 预测的市现率值
+        created_at:
+          type: string
+          format: date-time
+          description: 预测创建时间
+      required:
+        - stockId
+        - date
+        - TTM
+        - PE
+        - PB
+        - PCF
+    
+    ModelPredictionResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          description: 操作结果消息
+        pricePredictions:
+          type: object
+          properties:
+            count:
+              type: integer
+              description: 价格预测结果总数
+            samples:
+              type: array
+              items:
+                $ref: '#/components/schemas/Prediction'
+              description: 样例预测结果(最多5条)
+        factorPredictions:
+          type: object
+          properties:
+            count:
+              type: integer
+              description: 因子预测结果总数
+            samples:
+              type: array
+              items:
+                $ref: '#/components/schemas/FactorPrediction'
+              description: 样例因子预测结果(最多5条)
+      required:
+        - message
+        - pricePredictions
+        - factorPredictions
     
     # 通用响应模式
     Error:
@@ -858,6 +1000,53 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+                
+  /persons/stocks/{stockId}/check:
+    get:
+      tags:
+        - 用户股票管理
+      summary: 检查股票是否在用户列表中
+      description: 检查特定股票是否已添加到当前登录用户的选择列表中
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: stockId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: 要检查的股票ID
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  isInList:
+                    type: boolean
+                    description: 股票是否在用户列表中
+              example:
+                isInList: true
+        '400':
+          description: 请求参数错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: 未认证
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: 服务器内部错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
   # 股票数据管理相关路径
   /stocks:
@@ -1211,7 +1400,7 @@ paths:
                 $ref: '#/components/schemas/Error'
 
   # 雪球API股票K线数据
-  /stocks/snowballAPI/{symbol}:
+  /stocks/snowballAPI/kline/{symbol}:
     get:
       tags:
         - 股票数据
@@ -1270,6 +1459,150 @@ paths:
                 type: array
                 items:
                   type: object
+                  properties:
+                    timestamp:
+                      type: integer
+                      format: int64
+                      description: 时间戳(毫秒)
+                    volume:
+                      type: integer
+                      description: 成交量
+                    open:
+                      type: number
+                      format: decimal
+                      description: 开盘价
+                    high:
+                      type: number
+                      format: decimal
+                      description: 最高价
+                    low:
+                      type: number
+                      format: decimal
+                      description: 最低价
+                    close:
+                      type: number
+                      format: decimal
+                      description: 收盘价
+                    chg:
+                      type: number
+                      format: decimal
+                      description: 涨跌额
+                    percent:
+                      type: number
+                      format: decimal
+                      description: 涨跌幅(%)
+                    turnoverrate:
+                      type: number
+                      format: decimal
+                      description: 换手率(%)
+                    amount:
+                      type: number
+                      format: decimal
+                      description: 成交额
+                    volume_post:
+                      type: integer
+                      nullable: true
+                      description: 盘后成交量
+                    amount_post:
+                      type: number
+                      format: decimal
+                      nullable: true
+                      description: 盘后成交额
+                    pe:
+                      type: number
+                      format: decimal
+                      nullable: true
+                      description: 市盈率
+                    pb:
+                      type: number
+                      format: decimal
+                      nullable: true
+                      description: 市净率
+                    ps:
+                      type: number
+                      format: decimal
+                      nullable: true
+                      description: 市销率
+                    pcf:
+                      type: number
+                      format: decimal
+                      nullable: true
+                      description: 市现率
+                    market_capital:
+                      type: number
+                      format: decimal
+                      nullable: true
+                      description: 市值
+                    balance:
+                      type: number
+                      format: decimal
+                      nullable: true
+                      description: 资产负债
+                    hold_volume_cn:
+                      type: integer
+                      nullable: true
+                      description: 陆股通持仓量
+                    hold_ratio_cn:
+                      type: number
+                      format: decimal
+                      nullable: true
+                      description: 陆股通持仓比例(%)
+                    net_volume_cn:
+                      type: integer
+                      nullable: true
+                      description: 陆股通净买入
+                    hold_volume_hk:
+                      type: integer
+                      nullable: true
+                      description: 港股通持仓量
+                    hold_ratio_hk:
+                      type: number
+                      format: decimal
+                      nullable: true
+                      description: 港股通持仓比例(%)
+                    net_volume_hk:
+                      type: integer
+                      nullable: true
+                      description: 港股通净买入
+              example: 
+                - timestamp: 1741190400000
+                  volume: 79683892
+                  open: 521
+                  high: 544
+                  low: 521
+                  close: 544
+                  chg: 38.5
+                  percent: 7.62
+                  turnoverrate: 0.87
+                  amount: 42493519327.52
+                  volume_post: null
+                  amount_post: null
+                  pe: 26.2696
+                  pb: null
+                  ps: 6.9174
+                  pcf: 17.2236
+                  market_capital: 4993279478624
+                  balance: null
+                  hold_volume_cn: null
+                  hold_ratio_cn: null
+                  net_volume_cn: null
+                  hold_volume_hk: 1049184095
+                  hold_ratio_hk: 11.42
+                  net_volume_hk: -75718
+                - timestamp: 1741276800000
+                  volume: 46494425
+                  open: 539
+                  high: 547
+                  low: 529
+                  close: 533.5
+                  chg: -10.5
+                  percent: -1.93
+                  turnoverrate: 0.51
+                  amount: 24958094063.35
+                  pe: 25.7625
+                  ps: 6.7839
+                  pcf: 16.8911
+                  market_capital: 4896901841628.5
         '401':
           description: 未认证
           content:
@@ -1282,14 +1615,977 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+              example:
+                error: '访问被拒绝，请检查凭据'
         '404':
           description: 未找到请求的数据
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+              example:
+                error: '未找到请求的数据'
         '429':
           description: 请求过于频繁
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: '请求过于频繁，请稍后再试'
+        '500':
+          description: 服务器内部错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # 雪球API股票搜索
+  /stocks/snowballAPI/suggest_stock/{keyword}:
+    get:
+      tags:
+        - 股票数据
+      summary: 股票代码和名称搜索
+      description: 通过关键词搜索股票代码或名称，返回匹配的股票列表
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: keyword
+          in: path
+          required: true
+          schema:
+            type: string
+          description: 搜索关键词(股票代码或名称)
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    description: 状态码
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        code:
+                          type: string
+                          description: 股票代码
+                        label:
+                          type: string
+                          description: 标签
+                        query:
+                          type: string
+                          description: 查询内容
+                        state:
+                          type: integer
+                          description: 状态标识
+                        stock_type:
+                          type: integer
+                          description: 股票类型
+                        type:
+                          type: integer
+                          description: 类型
+                  message:
+                    type: string
+                    description: 结果消息
+                  meta:
+                    type: object
+                    properties:
+                      count:
+                        type: integer
+                        description: 返回数量
+                      feedback:
+                        type: integer
+                        description: 反馈值
+                      has_next_page:
+                        type: boolean
+                        description: 是否有下一页
+                      maxPage:
+                        type: integer
+                        description: 最大页数
+                      page:
+                        type: integer
+                        description: 当前页码
+                      query_id:
+                        type: number
+                        format: double
+                        description: 查询ID
+                      size:
+                        type: integer
+                        description: 页面大小
+                  success:
+                    type: boolean
+                    description: 是否成功
+              example:
+                code: 200
+                data:
+                  - code: "08303"
+                    label: "30"
+                    query: "08303"
+                    state: 2
+                    stock_type: 30
+                    type: 1
+                  - code: "F005827"
+                    label: "23"
+                    query: "易方达蓝筹精选混合"
+                    state: 1
+                    stock_type: 23
+                    type: 1
+                message: "success"
+                meta:
+                  count: 10
+                  feedback: -1
+                  has_next_page: true
+                  maxPage: 1
+                  page: 1
+                  query_id: 1898554239249694700
+                  size: 10
+                success: true
+        '400':
+          description: 请求参数错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "关键词不能为空"
+        '401':
+          description: 未认证
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: 未获取到数据
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '504':
+          description: API未响应
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "雪球API未响应，请稍后再试"
+        '500':
+          description: 服务器内部错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+                
+  # 新浪API股票行情数据
+  /stocks/sinaAPI/SH:
+    get:
+      tags:
+        - 股票数据
+      summary: 获取新浪API股票行情数据
+      description: |
+        从新浪财经API获取股票市场行情数据，支持分页、排序和市场分类筛选。
+        可用于获取A股、B股、创业板等不同市场的股票实时行情。
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 1
+            minimum: 1
+          description: 分页页码(从1开始)
+        - name: num
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 300
+            minimum: 1
+            maximum: 500
+          description: 每页返回数据条数(最大500条)
+        - name: sort
+          in: query
+          required: false
+          schema:
+            type: string
+            default: symbol
+          description: |
+            排序字段，可接受任意字符串，常用选项包括：
+            - symbol：按股票代码排序
+            - price：按最新价排序
+            - changepercent：按涨跌幅排序
+            - volume：按成交量排序
+            - amount：按成交额排序
+        - name: asc
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 1
+          description: |
+            排序方向，可接受任意整数值，常用选项包括：
+            - 1：升序
+            - 0或-1：降序
+        - name: node
+          in: query
+          required: false
+          schema:
+            type: string
+            default: hs_a
+          description: |
+            市场分类，可接受任意字符串，常用选项包括：
+            - hs_a：沪深A股
+            - hs_b：沪深B股
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    symbol:
+                      type: string
+                      description: 股票代码(带交易所前缀)
+                    code:
+                      type: string
+                      description: 股票代码(不带交易所前缀)
+                    name:
+                      type: string
+                      description: 股票名称
+                    trade:
+                      type: string
+                      description: 最新价
+                    pricechange:
+                      type: number
+                      format: decimal
+                      description: 涨跌额
+                    changepercent:
+                      type: number
+                      format: decimal
+                      description: 涨跌幅(%)
+                    buy:
+                      type: string
+                      description: 买入价
+                    sell:
+                      type: string
+                      description: 卖出价
+                    settlement:
+                      type: string
+                      description: 昨日收盘价
+                    open:
+                      type: string
+                      description: 开盘价
+                    high:
+                      type: string
+                      description: 最高价
+                    low:
+                      type: string
+                      description: 最低价
+                    volume:
+                      type: integer
+                      description: 成交量
+                    amount:
+                      type: integer
+                      description: 成交额
+                    ticktime:
+                      type: string
+                      description: 行情时间
+                    per:
+                      type: number
+                      format: decimal
+                      description: 市盈率
+                    pb:
+                      type: number
+                      format: decimal
+                      description: 市净率
+                    mktcap:
+                      type: number
+                      format: decimal
+                      description: 总市值(万元)
+                    nmc:
+                      type: number
+                      format: decimal
+                      description: 流通市值(万元)
+                    turnoverratio:
+                      type: number
+                      format: decimal
+                      description: 换手率(%)
+              example: 
+                - symbol: "bj430017"
+                  code: "430017"
+                  name: "星昊医药"
+                  trade: "15.930"
+                  pricechange: -0.04
+                  changepercent: -0.25
+                  buy: "15.870"
+                  sell: "15.930"
+                  settlement: "15.970"
+                  open: "15.940"
+                  high: "16.160"
+                  low: "15.720"
+                  volume: 3784335
+                  amount: 60337432
+                  ticktime: "15:30:02"
+                  per: 18.964
+                  pb: 1.277
+                  mktcap: 194805.1026
+                  nmc: 192855.2706
+                  turnoverratio: 3.12589
+                - symbol: "bj430047"
+                  code: "430047"
+                  name: "诺思兰德"
+                  trade: "14.050"
+                  pricechange: -0.01
+                  changepercent: -0.071
+                  buy: "14.050"
+                  sell: "14.060"
+                  settlement: "14.060"
+                  open: "14.300"
+                  high: "14.440"
+                  low: "13.910"
+                  volume: 2842162
+                  amount: 40233803
+                  ticktime: "15:30:02"
+                  per: -73.947
+                  pb: 11.277
+                  mktcap: 385352.12347
+                  nmc: 253049.529935
+                  turnoverratio: 1.57805
+        '400':
+          description: 请求参数错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "无效的分页参数"
+        '401':
+          description: 未认证
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: 未获取到数据
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "未获取到数据"
+        '504':
+          description: API未响应
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "新浪API未响应，请稍后再试"
+        '500':
+          description: 服务器内部错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # 新浪API港股行情数据
+  /stocks/sinaAPI/HK:
+    get:
+      tags:
+        - 股票数据
+      summary: 获取新浪API港股行情数据
+      description: |
+        从新浪财经API获取港股市场行情数据，支持分页、排序和市场分类筛选。
+        可用于获取港股主板、创业板等不同市场的股票实时行情。
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 1
+            minimum: 1
+          description: 分页页码(从1开始)
+        - name: num
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 300
+            minimum: 1
+            maximum: 500
+          description: 每页返回数据条数(最大500条)
+        - name: sort
+          in: query
+          required: false
+          schema:
+            type: string
+            default: symbol
+          description: |
+            排序字段，可接受任意字符串，常用选项包括：
+            - symbol：按股票代码排序
+            - lasttrade：按最新价排序
+            - changepercent：按涨跌幅排序
+            - volume：按成交量排序
+            - amount：按成交额排序
+        - name: asc
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 1
+          description: |
+            排序方向，可接受任意整数值，常用选项包括：
+            - 1：升序
+            - 0或-1：降序
+        - name: node
+          in: query
+          required: false
+          schema:
+            type: string
+            default: qbgg_hk
+          description: |
+            市场分类，可接受任意字符串，常用选项包括：
+            - qbgg_hk：全部港股
+            - hkhs：恒生指数成分股
+            - hk_red_chip：红筹股
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    symbol:
+                      type: string
+                      description: 股票代码
+                    name:
+                      type: string
+                      description: 股票名称(中文)
+                    engname:
+                      type: string
+                      description: 股票名称(英文)
+                    tradetype:
+                      type: string
+                      description: 交易类型
+                    lasttrade:
+                      type: string
+                      description: 最新成交价
+                    prevclose:
+                      type: string
+                      description: 昨收价
+                    open:
+                      type: string
+                      description: 开盘价
+                    high:
+                      type: string
+                      description: 最高价
+                    low:
+                      type: string
+                      description: 最低价
+                    volume:
+                      type: string
+                      description: 成交量
+                    currentvolume:
+                      type: string
+                      description: 当前成交量
+                    amount:
+                      type: string
+                      description: 成交金额
+                    ticktime:
+                      type: string
+                      description: 行情时间
+                    buy:
+                      type: string
+                      description: 买入价
+                    sell:
+                      type: string
+                      description: 卖出价
+                    high_52week:
+                      type: string
+                      description: 52周最高价
+                    low_52week:
+                      type: string
+                      description: 52周最低价
+                    eps:
+                      type: string
+                      description: 每股收益
+                    dividend:
+                      type: string
+                      description: 股息
+                    stocks_sum:
+                      type: string
+                      description: 股本总数
+                    pricechange:
+                      type: string
+                      description: 涨跌额
+                    changepercent:
+                      type: string
+                      description: 涨跌幅(%)
+              example: 
+                - symbol: "08428"
+                  name: "汉诺佳池"
+                  engname: "CBK HOLDINGS"
+                  tradetype: "EQTY"
+                  lasttrade: "0.630"
+                  prevclose: "0.430"
+                  open: "0.455"
+                  high: "0.630"
+                  low: "0.455"
+                  volume: "1621680"
+                  currentvolume: "10000"
+                  amount: "855398"
+                  ticktime: "2025-01-03 16:08:08"
+                  buy: "0.550"
+                  sell: "0.620"
+                  high_52week: "1.840"
+                  low_52week: "0.229"
+                  eps: "-0.038"
+                  dividend: "0.000"
+                  stocks_sum: "111971512"
+                  pricechange: "0.200"
+                  changepercent: "46.5116279"
+                - symbol: "00723"
+                  name: "信保环球控股"
+                  engname: "RELIANCE GLO HL"
+                  tradetype: "EQTY"
+                  lasttrade: "0.330"
+                  prevclose: "0.238"
+                  open: "0.260"
+                  high: "0.330"
+                  low: "0.223"
+                  volume: "4038000"
+                  currentvolume: "30000"
+                  amount: "1056480"
+                  ticktime: "2025-01-03 16:08:08"
+                  buy: "0.265"
+                  sell: "0.330"
+                  high_52week: "0.520"
+                  low_52week: "0.100"
+                  eps: "0.000"
+                  dividend: "0.000"
+                  stocks_sum: "1093841518"
+                  pricechange: "0.092"
+                  changepercent: "38.6554622"
+        '400':
+          description: 请求参数错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "无效的分页参数"
+        '401':
+          description: 未认证
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: 未获取到数据
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "未获取到数据"
+        '504':
+          description: API未响应
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "新浪API未响应，请稍后再试"
+        '500':
+          description: 服务器内部错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # 新浪API美股行情数据
+  /stocks/sinaAPI/US:
+    get:
+      tags:
+        - 股票数据
+      summary: 获取新浪API美股行情数据
+      description: |
+        从新浪财经API获取美股市场行情数据，支持分页、排序和市场分类筛选。
+        可用于获取美股NASDAQ、NYSE等交易所的股票实时行情。
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 1
+            minimum: 1
+          description: 分页页码(从1开始)
+        - name: num
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 500
+          description: 每页返回数据条数(最大500条)
+        - name: sort
+          in: query
+          required: false
+          schema:
+            type: string
+            default: ''
+          description: |
+            排序字段，可接受任意字符串，常用选项包括：
+            - volume：按成交量排序
+            - price：按最新价排序
+            - chg：按涨跌幅排序
+            - mktcap：按市值排序
+        - name: asc
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 0
+          description: |
+            排序方向，可接受任意整数值，常用选项包括：
+            - 1：升序
+            - 0：降序
+        - name: market
+          in: query
+          required: false
+          schema:
+            type: string
+            default: ''
+          description: |
+            市场筛选，可接受任意字符串，常用选项包括：
+            - NASDAQ：纳斯达克证券交易所
+            - NYSE：纽约证券交易所
+        - name: id
+          in: query
+          required: false
+          schema:
+            type: string
+            default: ''
+          description: 分类ID筛选
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  count:
+                    type: string
+                    description: 总记录数
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                          description: 公司英文名称
+                        cname:
+                          type: string
+                          description: 公司中文名称
+                        category:
+                          type: string
+                          description: 所属行业
+                        symbol:
+                          type: string
+                          description: 股票代码
+                        price:
+                          type: string
+                          description: 最新价
+                        diff:
+                          type: string
+                          description: 涨跌额
+                        chg:
+                          type: string
+                          description: 涨跌幅(%)
+                        preclose:
+                          type: string
+                          description: 前收盘价
+                        open:
+                          type: string
+                          description: 开盘价
+                        high:
+                          type: string
+                          description: 最高价
+                        low:
+                          type: string
+                          description: 最低价
+                        amplitude:
+                          type: string
+                          description: 振幅
+                        volume:
+                          type: string
+                          description: 成交量
+                        mktcap:
+                          type: string
+                          description: 市值
+                        pe:
+                          type: string
+                          description: 市盈率
+                        market:
+                          type: string
+                          description: 交易所
+                        category_id:
+                          type: string
+                          description: 行业ID
+              example:
+                count: "15318"
+                data:
+                  - name: "Apple, Inc."
+                    cname: "苹果公司"
+                    category: "计算机"
+                    symbol: "AAPL"
+                    price: "227.48"
+                    diff: "-11.59"
+                    chg: "-4.85"
+                    preclose: "239.07"
+                    open: "235.54"
+                    high: "236.16"
+                    low: "224.22"
+                    amplitude: "4.99%"
+                    volume: "72070924"
+                    mktcap: "3417221101859"
+                    pe: "35.99366923"
+                    market: "NASDAQ"
+                    category_id: "5"
+        '400':
+          description: 请求参数错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "无效的分页参数"
+        '401':
+          description: 未认证
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: 未获取到数据
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "未获取到数据"
+        '504':
+          description: API未响应
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "新浪API未响应，请稍后再试"
+        '500':
+          description: 服务器内部错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "解析JSONP响应失败"
+                
+  # 微信小程序相关路径
+  /wx/openid:
+    get:
+      tags:
+        - 微信认证
+      summary: 获取微信用户openid
+      description: 通过微信小程序登录code获取用户openid并验证用户身份
+      parameters:
+        - name: code
+          in: query
+          required: true
+          schema:
+            type: string
+          description: 微信小程序登录后获取的临时code
+      responses:
+        '200':
+          description: 验证成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  openid:
+                    type: string
+                    description: 微信用户唯一标识
+                  userExists:
+                    type: boolean
+                    description: 用户是否存在于系统中
+              example:
+                openid: "oXwiT5RafMUWIyfiE0rlg98PrcnI"
+                userExists: true
+        '400':
+          description: 请求参数错误或微信API错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                missingCode:
+                  value:
+                    error: "缺少必要参数code"
+                wxError:
+                  value:
+                    error: "微信API错误: 无效的code"
+        '500':
+          description: 服务器内部错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # 模型预测相关路径                
+  /modelPredict:
+    post:
+      tags:
+        - 模型预测
+      summary: 执行模型预测
+      description: |
+        训练模型并执行预测，存储：
+        1. 股票估值预测 - 预测未来估值
+        2. 预测中间变量 - 预测未来的TTM、PE、PB、PCF等因子值
+        
+        预测结果会保存到数据库中。如果数据库中已存在相同股票相同日期的预测，会更新而非追加记录。
+        此操作需要管理员权限。
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: 预测成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ModelPredictionResponse'
+        '401':
+          description: 未提供认证或认证已失效
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: 权限不足，需要管理员权限
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: 未找到股票数据
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: 服务器内部错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /modelPredict/{stockId}:
+    get:
+      tags:
+        - 模型预测
+      summary: 获取股票预测历史
+      description: 获取指定股票的所有预测历史记录
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: stockId
+          in: path
+          required: true
+          description: 股票代码
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 获取成功
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Prediction'
+        '401':
+          description: 未认证
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: 未找到股票代码的预测数据
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: 服务器内部错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /modelPredict/factor/{stockId}:
+    get:
+      tags:
+        - 模型预测
+      summary: 获取股票因子预测历史
+      description: 获取指定股票的所有因子预测历史记录，包括TTM、PE、PB、PCF等指标
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: stockId
+          in: path
+          required: true
+          description: 股票代码
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/FactorPrediction'
+        '401':
+          description: 未提供认证或认证已失效
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: 未找到预测结果
           content:
             application/json:
               schema:

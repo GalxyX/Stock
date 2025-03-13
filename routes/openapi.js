@@ -24,7 +24,7 @@ const router = express.Router();
 router.use(express.json());
 // 创建一个新的路由（router），并启用对 JSON 请求体的解析。
 
-const pathToSpec = join(__dirname, './openApiSchema.yml');
+const pathToSpec = join(__dirname, '../openApiSchema.yml');
 // 构建 openApiSchema.yml 文件的完整路径。
 const openApiSpec = yaml.load(pathToSpec);
 // 使用 yaml.load 读取并解析 YAML 格式的 openApiSchema.yml。

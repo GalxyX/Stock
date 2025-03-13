@@ -20,6 +20,7 @@ Express.js / person 路由 API 文件，用于身份认证和用户数据管理�
 - GET /persons/stocks：获取当前用户的股票列表
 - POST /persons/stocks：向当前用户的选择列表添加股票
 - DELETE /persons/stocks/:stockId：从当前用户的选择列表移除特定股票
+- GET /persons/stocks/:stockId/check：检查特定股票是否在当前用户的选择列表中
 
 所有接口均使用 JSON 格式进行数据交换，并提供恰当的 HTTP 状态码响应。
 数据库操作通过导入的 database.js 模块执行，身份验证通过 auth.js 中间件实现。
@@ -29,7 +30,7 @@ import bcrypt from 'bcrypt'; // 密码哈希库
 import express from 'express';
 // 用于创建路由对象等功能。
 import { authenticate, adminOnly } from './authenticate.js';
-// 从 auth.js 中导入两个中间件函数，分别用于身份验证和管理员权限验证。
+// 从 authenticate.js 中导入两个中间件函数，分别用于身份验证和管理员权限验证。
 
 
 const JWT_SECRET = process.env.JWT_SECRET || 'default_jwt_secret_for_development';
@@ -345,6 +346,31 @@ export default function(database) {
         }
         catch (err) {
             console.error(`Error removing stock from user: ${err}`);
+            res.status(500).json({ error: err?.message });
+        }
+    });
+
+    // 检查股票是否在用户的列表中
+    router.get('/stocks/:stockId/check', authenticate, async (req, res) => {
+        try {
+            const userId = req.user.id;
+            const stockId = req.params.stockId;
+            
+            if (!userId)
+                return res.status(400).json({ error: "用户ID不能为空" });
+            else if(!stockId)
+                return res.status(400).json({ error: "股票ID不能为空" });
+            
+            console.log(`检查股票 ${stockId} 是否在用户 ${userId} 的列表中`);
+            const stocks = await database.getUserSelectedStocks(userId);
+            
+            // 检查股票是否在列表中
+            const isInList = stocks.includes(stockId);
+            
+            res.status(200).json({ isInList });
+        }
+        catch (err) {
+            console.error(`检查股票状态时出错: ${err}`);
             res.status(500).json({ error: err?.message });
         }
     });

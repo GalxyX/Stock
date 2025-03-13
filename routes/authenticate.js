@@ -1,9 +1,9 @@
 import jwt from 'jsonwebtoken';
-import { createDatabaseConnection } from './database.js';
+import { createDatabaseConnection } from '../config/database.js';
 import {
     passwordConfig as SQLAuthentication,
     noPasswordConfig as PasswordlessConfig
-} from './config.js';
+} from '../config/config.js';
 
 // 定义 JWT 密钥（通过环境变量注入）
 const JWT_SECRET = process.env.JWT_SECRET || 'default_jwt_secret_for_development';

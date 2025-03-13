@@ -274,11 +274,11 @@ export default class Database {
                  BEGIN
                      CREATE TABLE Person (
                          id int NOT NULL IDENTITY PRIMARY KEY,
-                         name varchar(255) NOT NULL,
-                         selectedStocks varchar(MAX),
-                         account varchar(255) NOT NULL UNIQUE,
-                         password varchar(255),
-                         role varchar(255)
+                         name nvarchar(255) NOT NULL,
+                         selectedStocks nvarchar(MAX),
+                         account nvarchar(255) NOT NULL UNIQUE,
+                         password nvarchar(255),
+                         role nvarchar(255)
                      );
                  END`
             )
@@ -301,8 +301,8 @@ export default class Database {
                  BEGIN
                      CREATE TABLE Stockdata (
                         id INT IDENTITY(1,1) PRIMARY KEY,
-                        stockid VARCHAR(255) NOT NULL,
-                        date VARCHAR(255) NOT NULL,
+                        stockid NVARCHAR(255) NOT NULL,
+                        date NVARCHAR(255) NOT NULL,
                         TTM DECIMAL(20,10) NOT NULL,
                         PE DECIMAL(20,10) NOT NULL,
                         PB DECIMAL(20,10) NOT NULL,
@@ -323,7 +323,14 @@ export default class Database {
                         ratio_weibo_dictionary DECIMAL(20,10),
                         ratio_marketGDP DECIMAL(20,10),
                         ratio_marketpopulation DECIMAL(20,10),
-                        ratio_marketaslary DECIMAL(20,10)
+                        ratio_marketaslary DECIMAL(20,10),
+
+                        total_asset DECIMAL(20,5),
+                        quarterly_asset_growth DECIMAL(20,10),
+                        cash_flow_perhold_processed DECIMAL(20,10),
+                        rfr DECIMAL(20,10),
+                        smooth_asset_growth DECIMAL(20,10),
+                        close_price DECIMAL(20,10)
                      );
                  END`
             )
@@ -338,7 +345,6 @@ export default class Database {
 
     // 创建一条股票记录
     async createStock(stockData) {
-// 添加基本验证
         if (!stockData.stockid || !stockData.date) {
             throw new Error('股票代码和日期不能为空');
         }
@@ -346,8 +352,8 @@ export default class Database {
         const request = this.poolconnection.request();
         
         // 绑定参数
-        request.input('stockid', sql.VarChar(255), stockData.stockid);
-        request.input('date', sql.VarChar(255), stockData.date);
+        request.input('stockid', sql.NVarChar(255), stockData.stockid);
+        request.input('date', sql.NVarChar(255), stockData.date);
         request.input('TTM', sql.Decimal(20, 10), stockData.TTM);
         request.input('PE', sql.Decimal(20, 10), stockData.PE);
         request.input('PB', sql.Decimal(20, 10), stockData.PB);
@@ -368,18 +374,27 @@ export default class Database {
         request.input('ratio_marketGDP', sql.Decimal(20, 10), stockData.ratio_marketGDP);
         request.input('ratio_marketpopulation', sql.Decimal(20, 10), stockData.ratio_marketpopulation);
         request.input('ratio_marketaslary', sql.Decimal(20, 10), stockData.ratio_marketaslary);
+
+        request.input('total_asset', sql.Decimal(20, 5), stockData.total_asset);
+        request.input('quarterly_asset_growth', sql.Decimal(20, 10), stockData.quarterly_asset_growth);
+        request.input('cash_flow_perhold_processed', sql.Decimal(20, 10), stockData.cash_flow_perhold_processed);
+        request.input('rfr', sql.Decimal(20, 10), stockData.rfr);
+        request.input('smooth_asset_growth', sql.Decimal(20, 10), stockData.smooth_asset_growth);
+        request.input('close_price', sql.Decimal(20, 10), stockData.close_price);
         
         const result = await request.query(`
             INSERT INTO Stockdata (
                 stockid, date, TTM, PE, PB, PCF, baiduindex, weibo_cnsenti, weibo_dictionary, 
                 marketGDP, marketpopulation, marketaslary, 
                 ratio_TTM, ratio_PE, ratio_PB, ratio_PCF, ratio_baiduindex, ratio_weibo_cnsenti, 
-                ratio_weibo_dictionary, ratio_marketGDP, ratio_marketpopulation, ratio_marketaslary
+                ratio_weibo_dictionary, ratio_marketGDP, ratio_marketpopulation, ratio_marketaslary,
+                total_asset, quarterly_asset_growth, cash_flow_perhold_processed, rfr, smooth_asset_growth, close_price
             ) VALUES (
                 @stockid, @date, @TTM, @PE, @PB, @PCF, @baiduindex, @weibo_cnsenti, @weibo_dictionary, 
                 @marketGDP, @marketpopulation, @marketaslary, 
                 @ratio_TTM, @ratio_PE, @ratio_PB, @ratio_PCF, @ratio_baiduindex, @ratio_weibo_cnsenti, 
-                @ratio_weibo_dictionary, @ratio_marketGDP, @ratio_marketpopulation, @ratio_marketaslary
+                @ratio_weibo_dictionary, @ratio_marketGDP, @ratio_marketpopulation, @ratio_marketaslary,
+                @total_asset, @quarterly_asset_growth, @cash_flow_perhold_processed, @rfr, @smooth_asset_growth, @close_price
             )
         `);
         
@@ -396,8 +411,8 @@ export default class Database {
     // 按股票代号和日期查询记录
     async getStockByIdAndDate(stockid, date) {
         const request = this.poolconnection.request();
-        request.input('stockid', sql.VarChar(255), stockid);
-        request.input('date', sql.VarChar(255), date);
+        request.input('stockid', sql.NVarChar(255), stockid);
+        request.input('date', sql.NVarChar(255), date);
         
         const result = await request.query(`
             SELECT * FROM Stockdata 
@@ -410,7 +425,7 @@ export default class Database {
     // 按股票代号查询记录
     async getStockById(stockid) {
         const request = this.poolconnection.request();
-        request.input('stockid', sql.VarChar(255), stockid);
+        request.input('stockid', sql.NVarChar(255), stockid);
 
         const result = await request.query(`
             SELECT * FROM Stockdata 
@@ -423,7 +438,7 @@ export default class Database {
     // 按日期查询记录
     async getStockByDate(date) {
         const request = this.poolconnection.request();
-        request.input('date', sql.VarChar(255), date);
+        request.input('date', sql.NVarChar(255), date);
 
         const result = await request.query(`
             SELECT * FROM Stockdata 
@@ -437,7 +452,6 @@ export default class Database {
     async updateStock(stockData) {
         const request = this.poolconnection.request();
 
-        // 添加参数验证
         if (!stockData.stockid || !stockData.date) {
             throw new Error('股票代号和日期是必填字段');
         }
@@ -452,8 +466,8 @@ export default class Database {
         const date = stockData.date;
         
         // 绑定参数
-        request.input('stockid', sql.VarChar(255), stockid);
-        request.input('date', sql.VarChar(255), date);
+        request.input('stockid', sql.NVarChar(255), stockid);
+        request.input('date', sql.NVarChar(255), date);
         request.input('TTM', sql.Decimal(20, 10), stockData.TTM);
         request.input('PE', sql.Decimal(20, 10), stockData.PE);
         request.input('PB', sql.Decimal(20, 10), stockData.PB);
@@ -475,6 +489,12 @@ export default class Database {
         request.input('ratio_marketpopulation', sql.Decimal(20, 10), stockData.ratio_marketpopulation);
         request.input('ratio_marketaslary', sql.Decimal(20, 10), stockData.ratio_marketaslary);
         // 绑定其他需要更新的字段
+        request.input('total_asset', sql.Decimal(20, 5), stockData.total_asset);
+        request.input('quarterly_asset_growth', sql.Decimal(20, 10), stockData.quarterly_asset_growth);
+        request.input('cash_flow_perhold_processed', sql.Decimal(20, 10), stockData.cash_flow_perhold_processed);
+        request.input('rfr', sql.Decimal(20, 10), stockData.rfr);
+        request.input('smooth_asset_growth', sql.Decimal(20, 10), stockData.smooth_asset_growth);
+        request.input('close_price', sql.Decimal(20, 10), stockData.close_price);
         
         const result = await request.query(`
             UPDATE Stockdata 
@@ -484,7 +504,10 @@ export default class Database {
                 ratio_TTM = @ratio_TTM, ratio_PE = @ratio_PE, ratio_PB = @ratio_PB, ratio_PCF = @ratio_PCF,
                 ratio_baiduindex = @ratio_baiduindex, ratio_weibo_cnsenti = @ratio_weibo_cnsenti,
                 ratio_weibo_dictionary = @ratio_weibo_dictionary, ratio_marketGDP = @ratio_marketGDP,
-                ratio_marketpopulation = @ratio_marketpopulation, ratio_marketaslary = @ratio_marketaslary
+                ratio_marketpopulation = @ratio_marketpopulation, ratio_marketaslary = @ratio_marketaslary,
+                total_asset = @total_asset, quarterly_asset_growth = @quarterly_asset_growth,
+                cash_flow_perhold_processed = @cash_flow_perhold_processed, rfr = @rfr,
+                smooth_asset_growth = @smooth_asset_growth, close_price = @close_price
             WHERE stockid = @stockid AND date = @date
         `);
         
@@ -494,8 +517,8 @@ export default class Database {
     // 删除股票记录
     async deleteStock(stockid, date) {
         const request = this.poolconnection.request();
-        request.input('stockid', sql.VarChar(255), stockid);
-        request.input('date', sql.VarChar(255), date);
+        request.input('stockid', sql.NVarChar(255), stockid);
+        request.input('date', sql.NVarChar(255), date);
         
         const result = await request.query(`DELETE FROM Stockdata WHERE stockid = @stockid AND date = @date`);
         
@@ -507,6 +530,195 @@ export default class Database {
         const request = this.poolconnection.request();
         const result = await request.query(`DELETE FROM Stockdata`);
         return result.rowsAffected[0];
+    }
+
+    // 保存预测结果到数据库
+    async savePrediction(predictionData) {
+        try {
+            // 检查预测结果表是否存在，不存在则创建
+            await this.createPredictionsTable();
+
+            // 检查是否已存在相同日期的预测结果
+            const existingPrediction = await this.getStockPredictions(predictionData.stockId);
+            const existingForDate = existingPrediction?.find(p => p.date === predictionData.date);
+
+            if (existingForDate && new Date(existingForDate.createdAt) < new Date(predictionData.createdAt)) {
+                // 如果有更新的预测结果则更新现有预测
+                const request = this.poolconnection.request();
+                request.input('id', sql.Int, existingForDate.id);
+                request.input('predictedPrice', sql.Decimal(20, 10), predictionData.predictedPrice);
+                request.input('createdAt', sql.DateTime, new Date(predictionData.createdAt));
+                
+                const updateResult = await request.query(`
+                    UPDATE Predictions 
+                    SET predictedPrice = @predictedPrice, createdAt = @createdAt
+                    WHERE id = @id
+                `);
+                
+                return { id: existingForDate.id, updated: true };
+            }
+            else {
+                const request = this.poolconnection.request();
+                request.input('stockId', sql.NVarChar(255), predictionData.stockId);
+                request.input('date', sql.NVarChar(255), predictionData.date);
+                request.input('predictedPrice', sql.Decimal(20, 10), predictionData.predictedPrice);
+                request.input('createdAt', sql.DateTime, new Date(predictionData.createdAt));
+                
+                const insertResult = await request.query(`
+                    INSERT INTO Predictions (stockId, date, predictedPrice, createdAt)
+                    VALUES (@stockId, @date, @predictedPrice, @createdAt);
+                    SELECT SCOPE_IDENTITY() AS id;
+                `);
+                
+                return { id: insertResult.recordset[0].id, updated: false };
+            }
+        }
+        catch (error) {
+            console.error('保存预测结果时出错:', error);
+            throw error;
+        }
+    }
+
+    // 获取特定股票的预测历史
+    async getStockPredictions(stockId) {
+        try {
+            const request = this.poolconnection.request();
+            request.input('stockId', sql.NVarChar(255), stockId);
+            
+            const result = await request.query(`
+                SELECT stockId, date, predictedPrice FROM Predictions
+                WHERE stockId = @stockId
+                ORDER BY createdAt DESC
+            `);
+            
+            return result.recordset;
+        }
+        catch (error) {
+            console.error('获取股票预测历史时出错:', error);
+            throw error;
+        }
+    }
+
+    // 创建预测结果表
+    async createPredictionsTable() {
+        if (process.env.NODE_ENV === 'development') {
+            try {
+                await this.executeQuery(`
+                    IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'Predictions')
+                    BEGIN
+                        CREATE TABLE Predictions (
+                            id INT IDENTITY(1,1) PRIMARY KEY,
+                            stockId NVARCHAR(255) NOT NULL,
+                            date NVARCHAR(255) NOT NULL,
+                            predictedPrice DECIMAL(20, 10) NOT NULL,
+                            createdAt DATETIME NOT NULL
+                        );
+                    END
+                `);
+                console.log('Predictions表创建成功或已存在');
+            }
+            catch (err) {
+                console.error('创建Predictions表时出错:', err);
+            }
+        }
+    }
+
+    // 获取特定股票的预测历史
+    async getStockFactorPredictions(stockId) {
+        try {
+            const request = this.poolconnection.request();
+            request.input('stockId', sql.NVarChar(255), stockId);
+
+            const result = await request.query(`
+                SELECT stockId, date, TTM, PE, PB, PCF FROM FactorPredictions
+                WHERE stockId = @stockId
+                ORDER BY created_at DESC
+            `);
+
+            return result.recordset;
+        }
+        catch (error) {
+            console.error('获取股票预测TTM,PE,PB,PCF时出错:', error);
+            throw error;
+        }
+    }
+
+    // 保存因子预测结果到数据库
+    async saveFactorPrediction(predictionData) {
+        try {
+            // 检查预测结果表是否存在，不存在则创建
+            await this.createFactorPredictionTable();
+
+            const existingPrediction = await this.getStockFactorPredictions(predictionData.stockId);
+            const existingForDate = existingPrediction?.find(p => p.date === predictionData.date);
+            
+            if (existingForDate) {
+                // 只要有预测结果则更新现有预测
+                const request = this.poolconnection.request();
+                request.input('id', sql.Int, existingForDate.id);
+                request.input('TTM', sql.Decimal(20, 10), predictionData.TTM);
+                request.input('PE', sql.Decimal(20, 10), predictionData.PE);
+                request.input('PB', sql.Decimal(20, 10), predictionData.PB);
+                request.input('PCF', sql.Decimal(20, 10), predictionData.PCF);
+                request.input('created_at', sql.DateTime, new Date());
+                
+                const updateResult = await request.query(`
+                    UPDATE FactorPredictions 
+                    SET TTM = @TTM, PE = @PE, PB = @PB, PCF = @PCF, created_at = @created_at
+                    WHERE id = @id
+                `);
+                
+                return { id: existingForDate.id, updated: true };
+            }
+            else {
+                const request = this.poolconnection.request();
+                request.input('stockId', sql.NVarChar(255), predictionData.stockId);
+                request.input('date', sql.NVarChar(255), predictionData.date);
+                request.input('TTM', sql.Decimal(20, 10), predictionData.TTM);
+                request.input('PE', sql.Decimal(20, 10), predictionData.PE);
+                request.input('PB', sql.Decimal(20, 10), predictionData.PB);
+                request.input('PCF', sql.Decimal(20, 10), predictionData.PCF);
+                request.input('created_at', sql.DateTime, new Date());
+                
+                const insertResult = await request.query(`
+                    INSERT INTO FactorPredictions (stockId, date, TTM, PE, PB, PCF, created_at)
+                    VALUES (@stockId, @date, @TTM, @PE, @PB, @PCF, @created_at);
+                    SELECT SCOPE_IDENTITY() AS id;
+                `);
+                
+                return { id: insertResult.recordset[0].id, updated: false };
+            }
+        }
+        catch (error) {
+            console.error('保存预测TTM,PE,PB,PCF时出错:', error);
+            throw error;
+        }
+    }
+
+    async createFactorPredictionTable() {
+        if (process.env.NODE_ENV === 'development') {
+            try {
+                await this.executeQuery(`
+                    IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'FactorPredictions')
+                    BEGIN
+                        CREATE TABLE FactorPredictions (
+                            id INT IDENTITY(1,1) PRIMARY KEY,
+                            stockId NVARCHAR(255) NOT NULL,
+                            date NVARCHAR(255) NOT NULL,
+                            TTM DECIMAL(20,10) NOT NULL,
+                            PE DECIMAL(20,10) NOT NULL,
+                            PB DECIMAL(20,10) NOT NULL,
+                            PCF DECIMAL(20,10) NOT NULL,
+                            created_at DATETIME NOT NULL
+                        );
+                    END
+                `);
+                console.log('FactorPredictions表创建成功或已存在');
+            }
+            catch (err) {
+                console.error('创建FactorPredictions表时出错:', err);
+            }
+        }
     }
 }
 
@@ -524,6 +736,8 @@ export const createDatabaseConnection = async (passwordConfig) => {
     // 连接到数据库。
     await database.createTable();
     await database.createStockTable();
+    await database.createPredictionsTable();
+    await database.createFactorPredictionTable();
     // 在开发环境下创建 Table（若还不存在）。
     return database;
     // 返回该实例，以便在外部使用。
